@@ -1,0 +1,95 @@
+---
+title: "Part 1 multiple linear regression"
+author: "Lindsay Hafen"
+date: "12/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, error = FALSE, warning = FALSE)
+library(tidyverse)
+library(palmerpenguins)
+library(GGally)
+library(stargazer)
+```
+
+```{r}
+penguins %>% #Creates a matrix with all possible values, don't need to facet and wrap and create them all seperately
+  ggpairs()
+```
+
+```{r}
+penguins %>% 
+  select(species, bill_length_mm : body_mass_g) %>% 
+  ggpairs(aes(color = species)) #correlation seems strongest btx flipplength and bm, but nothing else seems more than moderately correlated. Probably don't need to be worried about co-linearity. can test it using the car package with vif
+```
+
+## Build a few different models
+- Penguin mass is going to be the dependent variable
+- Predictor variables flipp length, species, sex, bill length, island
+
+```{r}
+lm1 <- lm(body_mass_g ~ flipper_length_mm + species, data = penguins)
+lm1 #Call it, reference level for species must me adele penguins (Not included)
+```
+- If all other variables are fixed, we expect a gentoo penguin to weigh 266.81 grams more than an adele penguin on average...
+- Below we look at how the relationships change as we add variables
+- Next look at the overall fit of the model (including with the adjusted r^2 value) with AIC
+
+```{r}
+lm2 <- lm(body_mass_g ~ flipper_length_mm + species + sex, data = penguins)
+lm2
+
+lm3 <- lm(body_mass_g ~ flipper_length_mm + species + sex + bill_length_mm, data = penguins)
+lm3
+
+lm4 <- lm(body_mass_g ~ flipper_length_mm + species + sex + bill_length_mm + island,
+          data = penguins)
+lm4
+
+```
+###AIC criterion to examine complexity and fit of the model
+- Lower AIC value is better balance between complexity and fit 
+- More variables are penalized
+
+
+```{r}
+AIC(lm1) #Value is 5031.523, doesn't mean anything unless comparing other permutations of a model:
+
+AIC(lm2) # Values has dropped to 4740.774, added sex was a good addition. Better model fit
+
+AIC(lm3) # Value goes down again when adding bill_length as a variable: 4733.574
+
+AIC(lm4) # Value goes back up with the addition of island, so using this as a metric, we would reject this model and exclude island as a variable. 4736.979
+```
+- lm3 has the lowest AIC value, expressing the best model fit and complexity of the options we have input, but we must also take into consideration that our background information is important when making the decision to use or reject certain model combinations. 
+- So what is the model that we show the audience? Tempting to show all models and let them choose, especially if you can't select one over the others. 
+
+## Use stargazer package for a table with multiple model outputs
+- Super cool way to compare between values side by side in a professional (close to publication-quality) table. 
+- On average, we expect that a 1mm increase in bill_length, will result on average in a 21.633 gram increase in body mass (looking at the results in the knitted doc)
+
+```{r, results = 'asis'}
+stargazer(lm1, lm3, lm4, type = "html")
+```
+
+## Omitted variable bias
+- If we ignore species we will see a reversal of the relationship according to the Simpson's Paradox
+
+```{r}
+ggplot(data = penguins, aes(x = flipper_length_mm, y = bill_depth_mm)) +
+  geom_point()+
+  geom_smooth(method = "lm")
+```
+
+## Now we will include species to compare
+
+```{r}
+ggplot(data = penguins, aes(x = flipper_length_mm, y = bill_depth_mm,
+                            group = species)) +
+  geom_point(aes(color = species)) +
+  geom_smooth(method = "lm")
+```
+
+
+

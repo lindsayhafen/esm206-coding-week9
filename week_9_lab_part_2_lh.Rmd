@@ -1,0 +1,96 @@
+---
+title: "Lab part II week 9"
+author: "Lindsay Hafen"
+date: "12/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(janitor)
+library(broom)
+```
+
+## Read in data
+
+```{r}
+lizards <- read_csv(here("data", "lizards.csv"))
+```
+
+Get counts of lizards by species:
+```{r}
+lizards %>% 
+  count(spp) %>% 
+  arrange(-n)
+
+# UTST is the most common, so that is the species we will continue with
+```
+
+## Make a subset
+
+- UTST only
+- Highest trap sites: IBPE (enclosure grasslands), RABB (Rabbit mesquite site), "EAST" (East tarbrush site)
+- Only keep observations where tail condition is recorded (W = whole, B = broken)
+
+```{r}
+utst <- lizards %>% 
+  filter(spp == "UTST") %>% 
+  filter(site %in% c("IBPE", "RABB", "EAST")) %>% #Use unique in console to double check unique(utst$site)
+  filter(tail %in% c("B", "W"))
+```
+
+## Find counts and proportions of lizards with broken or whole tails at each site
+
+```{r}
+utst %>% 
+  count(site, tail)
+
+# Cool, but in long format. If you want in short format for chi-squared etc, use janitor's tabyl function (Below)
+```
+
+```{r}
+tail_counts <- utst %>% 
+  janitor::tabyl(site, tail)
+
+# Also show proportions directly!
+
+tail_proportions <- tail_counts %>% 
+  janitor::adorn_percentages() %>% 
+  janitor::adorn_pct_formatting(digits = 2) %>% #To round percentages to 2 digits
+  janitor::adorn_ns() # Shows actual counts as well!!!
+```
+
+- Is there enough evidence to reject the H0 that tail breakage is independent of site?
+- Is there a significant association between site and tail breakage?
+- It looks like there is something going on at the Rabbit site...
+
+## Convert to contingency table
+- Use column to rowname function to switch site from data to titles instead of numbers (1,2,3)
+
+```{r}
+lizard_ct <- tail_counts %>% 
+  column_to_rownames(var = "site")
+```
+
+## Run Chi-square
+- Are tail breakage and site independent?
+
+```{r}
+lizard_x2 <- chisq.test(lizard_ct)
+lizard_x2
+
+# Use broom tidy function to display tidy data frame in text reference
+
+lizard_tidy <- broom::tidy(lizard_x2)
+```
+- Probability that we would get counts at least this different from the expected results under the null hypothesis is .1456%
+- We would therefore reject the H0
+- Site and lizard tail breakage are NOT independent
+
+Example of inline referencing:
+
+There is a significant association (i.e. non-independence) between site and lizard tail breakage: ($\chi$^2^(`r lizard_tidy$parameter`) = `r lizard_tidy$statistic`, *p* = `r lizard_tidy$p.value`).
+
+
